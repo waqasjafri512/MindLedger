@@ -89,7 +89,7 @@ Format your response in Markdown with clear sections and high-end insights.`;
 router.get('/profile-summary', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const decisions = await prisma.decision.findMany({
-      where: { userId: req.user?.id },
+      where: { userId: req.user?.id, isDeleted: false },
       select: { 
         title: true, 
         category: true, 
@@ -103,6 +103,20 @@ router.get('/profile-summary', authenticateToken, async (req: AuthRequest, res) 
       return res.json({ analysis: "Your MindLedger is currently empty. Start logging decisions to build your cognitive profile." });
     }
 
+    // Cache check: Find the most recent bias analysis for this user
+    const lastAnalysis = await prisma.biasAnalysis.findFirst({
+      where: { userId: req.user?.id },
+      orderBy: { generatedAt: 'desc' },
+    });
+
+    // If the number of decisions hasn't changed, return the cached profile
+    if (lastAnalysis && lastAnalysis.decisionsAnalyzed === decisions.length && lastAnalysis.summary) {
+      console.log('Returning CACHED cognitive profile');
+      return res.json({ analysis: lastAnalysis.summary });
+    }
+
+    console.log('Generating FRESH cognitive profile');
+
     const dataSnapshot = decisions.map((d: any) => 
       `[${d.category}] ${d.title}: Confidence ${d.confidence}%, Accuracy ${d.accuracyScore ?? 'N/A'}. Analysis: ${d.aiAnalysis?.slice(0, 200)}...`
     ).join('\n---\n');
@@ -111,6 +125,17 @@ router.get('/profile-summary', authenticateToken, async (req: AuthRequest, res) 
 ${dataSnapshot}`;
 
     const analysis = await askGrok(prompt, PROFILE_SYSTEM_PROMPT);
+
+    // Save as new cached entry
+    await prisma.biasAnalysis.create({
+      data: {
+        userId: req.user?.id as string,
+        decisionsAnalyzed: decisions.length,
+        biases: [], // Empty JSON array to satisfy schema
+        summary: analysis,
+      }
+    });
+
     res.json({ analysis });
   } catch (err) {
     console.error('Profile Analysis Error:', err);
