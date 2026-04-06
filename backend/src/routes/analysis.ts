@@ -1,0 +1,121 @@
+import express from 'express';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { askGrok } from '../lib/grok';
+import prisma from '../lib/prisma';
+
+const router = express.Router();
+
+const ANALYSIS_SYSTEM_PROMPT = `You are MindLedger AI, a decision intelligence specialist. 
+Your goal is to help users identify cognitive biases and stretch their perspective before they commit to a decision.
+Be objective, analytical, and slightly provocative to encourage deep thinking.
+Format your response in Markdown with the following sections:
+### 🧠 Cognitive Bias Analysis
+(Identify 2-3 likely biases in the reasoning provided)
+### 🔮 Pre-Mortem (Failure Scenarios)
+(Describe 1-2 ways this decision could fail and how to mitigate them)
+### 💡 Recommendation
+(One specific action to improve the decision quality)`;
+
+router.post('/', authenticateToken, async (req: AuthRequest, res) => {
+  const { title, context, reasoning, confidence } = req.body;
+
+  if (!context || !reasoning) {
+    return res.status(400).json({ error: 'Context and reasoning are required for analysis.' });
+  }
+
+  const prompt = `
+Decision Title: ${title || 'Untitled'}
+Situation/Context: ${context}
+Reasoning: ${reasoning}
+Confidence level: ${confidence}%
+
+Please analyze this decision for cognitive biases and provide a pre-mortem.
+`;
+
+  try {
+    const analysis = await askGrok(prompt, ANALYSIS_SYSTEM_PROMPT);
+    res.json({ analysis });
+  } catch (err) {
+    console.error('Grok Analysis Error:', err);
+    res.status(500).json({ error: 'AI Analysis failed. Please try again.' });
+  }
+});
+
+const HINDSIGHT_SYSTEM_PROMPT = `You are MindLedger AI, a decision calibration specialist.
+Your goal is to perform a "Hindsight Reconciliation." 
+You will be given the original reasoning/confidence and the actual outcome.
+Identify if the user is falling into Hindsight Bias ("I knew it all along") or if they were correctly calibrated.
+Format your response in Markdown:
+### 🕵️ Hindsight Assessment
+(Compare reasoning vs outcome)
+### 📊 Calibration Note
+(Was the user's confidence justified?)
+### 🎓 Key Learning
+(One lesson for the next time a similar decision arises)`;
+
+router.post('/hindsight', authenticateToken, async (req: AuthRequest, res) => {
+  const { title, reasoning, confidence, actualOutcome } = req.body;
+
+  if (!reasoning || !actualOutcome) {
+    return res.status(400).json({ error: 'Original reasoning and actual outcome are required.' });
+  }
+
+  const prompt = `
+Decision: ${title}
+Original Reasoning: ${reasoning}
+Original Confidence: ${confidence}%
+Actual Outcome: ${actualOutcome}
+
+Please perform a hindsight reconciliation analysis.
+`;
+
+  try {
+    const analysis = await askGrok(prompt, HINDSIGHT_SYSTEM_PROMPT);
+    res.json({ analysis });
+  } catch (err) {
+    console.error('Grok Hindsight Error:', err);
+    res.status(500).json({ error: 'AI Hindsight Analysis failed.' });
+  }
+});
+
+const PROFILE_SYSTEM_PROMPT = `You are MindLedger AI, a cognitive architect.
+You will be given a list of past decision titles, categories, confidence levels, and previous AI analyses.
+Determine the user's "Cognitive DNA":
+1. Top 3 Recurring Biases (e.g., Sunk Cost, Overconfidence).
+2. Domain Expertise vs. Domain Weakness (e.g., Finance is calibrated, but Relationships are biased).
+3. A Growth Roadmap (3 actionable steps to improve).
+Format your response in Markdown with clear sections and high-end insights.`;
+
+router.get('/profile-summary', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const decisions = await prisma.decision.findMany({
+      where: { userId: req.user?.id },
+      select: { 
+        title: true, 
+        category: true, 
+        confidence: true, 
+        aiAnalysis: true, 
+        accuracyScore: true 
+      }
+    });
+
+    if (decisions.length === 0) {
+      return res.json({ analysis: "Your MindLedger is currently empty. Start logging decisions to build your cognitive profile." });
+    }
+
+    const dataSnapshot = decisions.map((d: any) => 
+      `[${d.category}] ${d.title}: Confidence ${d.confidence}%, Accuracy ${d.accuracyScore ?? 'N/A'}. Analysis: ${d.aiAnalysis?.slice(0, 200)}...`
+    ).join('\n---\n');
+
+    const prompt = `Aggregate these ledger entries into a Cognitive Profile:
+${dataSnapshot}`;
+
+    const analysis = await askGrok(prompt, PROFILE_SYSTEM_PROMPT);
+    res.json({ analysis });
+  } catch (err) {
+    console.error('Profile Analysis Error:', err);
+    res.status(500).json({ error: 'Failed to generate profile.' });
+  }
+});
+
+export default router;

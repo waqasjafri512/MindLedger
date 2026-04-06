@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #111111;
+  --bg-2: #F9F9F7;
+  --surface: #FFFFFF;
+  --surface-2: #F3F3F1;
+  --border: #E8E8E1;
+  --border-2: rgba(0, 0, 0, 0.05);
+
+  --gold: #C5A039;
+  --gold-lt: #D4AF37;
+  --gold-dk: #9A7832;
+  
+  --text-2: #666666;
+  --text-3: #999999;
+  --red: #C05A3A;
+  --teal: #3A8C7A;
+
+  /* Shadcn Overrides for Light Mode */
+  --card: #FFFFFF;
+  --card-foreground: #111111;
+  --popover: #FFFFFF;
+  --popover-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #18181B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #F4F4F5;
+  --accent-foreground: #18181B;
+  --destructive: #EF4444;
+  --input: #E4E4E7;
+  --ring: #111111;
+  --radius: 0.75rem;
+
+  --sidebar: #F9F9F7;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #C5A039;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #FFFFFF;
+  --sidebar-accent-foreground: #C5A039;
+  --sidebar-border: #E8E8E1;
+  --sidebar-ring: #C5A039;
+}
+
+/* Inverting the dark mode to same as light mode or removal if purely light is requested */
+.dark {
+  --background: #FFFFFF;
+  --foreground: #111111;
+  --card: #FFFFFF;
+  --card-foreground: #111111;
+  --popover: #FFFFFF;
+  --popover-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #18181B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #F4F4F5;
+  --accent-foreground: #18181B;
+  --destructive: #EF4444;
+  --border: #E8E8E1;
+  --input: #E4E4E7;
+  --ring: #111111;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-gold: var(--gold);
+  --color-gold-lt: var(--gold-lt);
+  --color-gold-dk: var(--gold-dk);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-red: var(--red);
+  --color-teal: var(--teal);
+  --font-playfair: "Playfair Display", serif;
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+}
+
+body {
+  font-family: var(--font-sans), sans-serif;
+  line-height: 1.6;
+}
+
+.font-serif {
+  font-family: "Playfair Display", serif;
+}
+
+* {
+  border-color: var(--border);
+  outline-color: color-mix(in srgb, var(--ring), transparent 50%);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  line-height: 1.6;
+}
+
+/* Atmospheric Glow Light Recalibration */
+.bg-atmospheric-light {
+  background: radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.05), transparent 70%);
+}
