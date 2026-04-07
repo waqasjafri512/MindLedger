@@ -3,6 +3,8 @@ import { Playfair_Display, DM_Sans, DM_Mono, Geist } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/context/AuthContext";
+import { Toaster } from "@/components/ui/toaster";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -38,9 +40,12 @@ export default function RootLayout({
       className={cn("h-full", "antialiased", playfair.variable, dmSans.variable, dmMono.variable, "font-sans", geist.variable)}
     >
       <body className="min-h-full flex flex-col font-dm-sans bg-background text-foreground">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </ErrorBoundary>
+        <Toaster />
       </body>
     </html>
   );

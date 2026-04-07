@@ -1,7 +1,8 @@
 import express from 'express';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { askGrok } from '../lib/grok';
+import { askGroq } from '../lib/groq';
 import prisma from '../lib/prisma';
+import { validate, analysisSchema, hindsightSchema } from '../lib/validation';
 
 const router = express.Router();
 
@@ -16,12 +17,8 @@ Format your response in Markdown with the following sections:
 ### 💡 Recommendation
 (One specific action to improve the decision quality)`;
 
-router.post('/', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/', authenticateToken, validate(analysisSchema), async (req: AuthRequest, res) => {
   const { title, context, reasoning, confidence } = req.body;
-
-  if (!context || !reasoning) {
-    return res.status(400).json({ error: 'Context and reasoning are required for analysis.' });
-  }
 
   const prompt = `
 Decision Title: ${title || 'Untitled'}
@@ -33,10 +30,10 @@ Please analyze this decision for cognitive biases and provide a pre-mortem.
 `;
 
   try {
-    const analysis = await askGrok(prompt, ANALYSIS_SYSTEM_PROMPT);
+    const analysis = await askGroq(prompt, ANALYSIS_SYSTEM_PROMPT);
     res.json({ analysis });
   } catch (err) {
-    console.error('Grok Analysis Error:', err);
+    console.error('Groq Analysis Error:', err);
     res.status(500).json({ error: 'AI Analysis failed. Please try again.' });
   }
 });
@@ -53,12 +50,8 @@ Format your response in Markdown:
 ### 🎓 Key Learning
 (One lesson for the next time a similar decision arises)`;
 
-router.post('/hindsight', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/hindsight', authenticateToken, validate(hindsightSchema), async (req: AuthRequest, res) => {
   const { title, reasoning, confidence, actualOutcome } = req.body;
-
-  if (!reasoning || !actualOutcome) {
-    return res.status(400).json({ error: 'Original reasoning and actual outcome are required.' });
-  }
 
   const prompt = `
 Decision: ${title}
@@ -70,10 +63,10 @@ Please perform a hindsight reconciliation analysis.
 `;
 
   try {
-    const analysis = await askGrok(prompt, HINDSIGHT_SYSTEM_PROMPT);
+    const analysis = await askGroq(prompt, HINDSIGHT_SYSTEM_PROMPT);
     res.json({ analysis });
   } catch (err) {
-    console.error('Grok Hindsight Error:', err);
+    console.error('Groq Hindsight Error:', err);
     res.status(500).json({ error: 'AI Hindsight Analysis failed.' });
   }
 });
@@ -95,7 +88,9 @@ router.get('/profile-summary', authenticateToken, async (req: AuthRequest, res) 
         category: true, 
         confidence: true, 
         aiAnalysis: true, 
-        accuracyScore: true 
+        accuracyScore: true,
+        isReviewed: true,
+        reviewedAt: true,
       }
     });
 
@@ -103,35 +98,37 @@ router.get('/profile-summary', authenticateToken, async (req: AuthRequest, res) 
       return res.json({ analysis: "Your MindLedger is currently empty. Start logging decisions to build your cognitive profile." });
     }
 
-    // Cache check: Find the most recent bias analysis for this user
     const lastAnalysis = await prisma.biasAnalysis.findFirst({
       where: { userId: req.user?.id },
       orderBy: { generatedAt: 'desc' },
     });
 
-    // If the number of decisions hasn't changed, return the cached profile
-    if (lastAnalysis && lastAnalysis.decisionsAnalyzed === decisions.length && lastAnalysis.summary) {
-      console.log('Returning CACHED cognitive profile');
-      return res.json({ analysis: lastAnalysis.summary });
-    }
+    // Improved cache: check count AND latest review timestamp
+    const latestReview = decisions
+      .filter((d: any) => d.reviewedAt)
+      .sort((a: any, b: any) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime())[0];
 
-    console.log('Generating FRESH cognitive profile');
+    const cacheIsValid = lastAnalysis 
+      && lastAnalysis.decisionsAnalyzed === decisions.length 
+      && lastAnalysis.summary
+      && (!latestReview?.reviewedAt || new Date(latestReview.reviewedAt) < lastAnalysis.generatedAt);
+
+    if (cacheIsValid) {
+      return res.json({ analysis: lastAnalysis!.summary });
+    }
 
     const dataSnapshot = decisions.map((d: any) => 
       `[${d.category}] ${d.title}: Confidence ${d.confidence}%, Accuracy ${d.accuracyScore ?? 'N/A'}. Analysis: ${d.aiAnalysis?.slice(0, 200)}...`
     ).join('\n---\n');
 
-    const prompt = `Aggregate these ledger entries into a Cognitive Profile:
-${dataSnapshot}`;
+    const prompt = `Aggregate these ledger entries into a Cognitive Profile:\n${dataSnapshot}`;
+    const analysis = await askGroq(prompt, PROFILE_SYSTEM_PROMPT);
 
-    const analysis = await askGrok(prompt, PROFILE_SYSTEM_PROMPT);
-
-    // Save as new cached entry
     await prisma.biasAnalysis.create({
       data: {
         userId: req.user?.id as string,
         decisionsAnalyzed: decisions.length,
-        biases: [], // Empty JSON array to satisfy schema
+        biases: [],
         summary: analysis,
       }
     });

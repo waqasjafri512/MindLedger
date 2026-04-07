@@ -4,6 +4,8 @@
 .env.development
 .env.test
 .env.production
+backend/.env
+frontend/.env.local
 
 # Dependencies
 node_modules/
@@ -24,7 +26,7 @@ dist/
 /prisma/dev.db
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*

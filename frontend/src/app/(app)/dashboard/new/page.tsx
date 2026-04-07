@@ -9,9 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
-import { Sparkles, BrainCircuit, ShieldAlert, Check, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Sparkles, BrainCircuit, ShieldAlert, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchWithAuth } from '@/lib/api';
+import { toast } from 'sonner';
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
 
 export default function NewDecisionPage() {
   const router = useRouter();
@@ -31,6 +33,17 @@ export default function NewDecisionPage() {
   });
 
   const nextStep = async () => {
+    // Basic validation for steps
+    if (step === 1 && (!formData.title || !formData.context)) {
+      return toast.error('Please provide a title and context for this case.');
+    }
+    if (step === 2 && !formData.reasoning) {
+      return toast.error('Reasoning is required to archive this decision.');
+    }
+    if (step === 3 && !formData.reviewDate) {
+      return toast.error('A reckoning date is required.');
+    }
+
     if (step === 3 && !analysis) {
       setAnalyzing(true);
       setStep(4);
@@ -45,8 +58,11 @@ export default function NewDecisionPage() {
           })
         });
         setAnalysis(data.analysis);
-      } catch (err) {
-        setAnalysis("AI Analysis temporarily unavailable. You may proceed to seal the ledger.");
+        toast.success('AI Analysis synthesized.');
+      } catch (err: any) {
+        console.error('Analysis failed', err);
+        setAnalysis("### ⚠️ AI Analysis Unavailable\nWe were unable to synthesize an intelligence report at this time. You may still proceed to seal the ledger based on your own reasoning.");
+        toast.error('AI Intelligence Layer failed to respond.');
       } finally {
         setAnalyzing(false);
       }
@@ -60,19 +76,29 @@ export default function NewDecisionPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    
+    // Process emotions into array
+    const emotionTags = formData.emotion 
+      ? formData.emotion.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+
     try {
       await fetchWithAuth('/decisions', {
         method: 'POST',
         body: JSON.stringify({
           ...formData,
+          emotionTags,
           aiAnalysis: analysis,
-          // Minor transform for the backend structure if needed
-          alternatives: formData.alternatives ? [{ option: formData.alternatives, rejected_reason: "Considered but not prioritized" }] : []
+          alternatives: formData.alternatives 
+            ? [{ option: formData.alternatives, rejected_reason: "Considered but not prioritized" }] 
+            : []
         })
       });
+      toast.success('Decision ledger entry sealed.');
       router.push('/dashboard');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Submission failed', err);
+      toast.error(err.message || 'Failed to archive decision.');
       setSubmitting(false);
     }
   };
@@ -206,9 +232,9 @@ export default function NewDecisionPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-bold">Prevailing Emotion</Label>
+                    <Label className="text-[11px] uppercase tracking-widest text-muted-foreground font-bold">Prevailing Emotions (Comma separated)</Label>
                     <Input 
-                      placeholder="e.g. Excitement, Fear of Missing Out, Professional Pride" 
+                      placeholder="e.g. Excitement, Fear of Missing Out, Pride" 
                       value={formData.emotion}
                       onChange={(e) => setFormData({...formData, emotion: e.target.value})}
                       className="h-12 bg-white border-border focus-visible:ring-gold/30 rounded-xl font-medium"
@@ -235,20 +261,21 @@ export default function NewDecisionPage() {
                   </div>
                   <h3 className="text-2xl font-serif text-foreground">AI Intelligence Analysis</h3>
                   {analyzing ? (
-                    <p className="text-muted-foreground font-bold animate-pulse">Consulting Grok-3 to identify blindspots in your reasoning...</p>
+                    <p className="text-muted-foreground font-bold animate-pulse italic">Synthesizing intelligence to identify blindspots in your reasoning...</p>
                   ) : (
-                    <p className="text-gold font-bold">Analysis Complete.</p>
+                    <p className="text-gold font-bold uppercase tracking-widest text-[10px]">Analysis Complete</p>
                   )}
                 </div>
 
                 {analysis && (
-                  <div className="p-8 bg-white border border-gold/20 rounded-2xl shadow-[0_10px_30px_rgba(212,175,55,0.1)] space-y-4">
-                    <div className="flex items-center gap-2 text-gold">
+                  <div className="p-8 bg-white border border-gold/20 rounded-3xl shadow-[0_10px_30px_rgba(212,175,55,0.1)] space-y-4 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 blur-2xl -mr-16 -mt-16" />
+                    <div className="flex items-center gap-2 text-gold relative z-10">
                       <ShieldAlert size={18} />
                       <span className="text-[10px] uppercase tracking-widest font-bold">Intelligence Flash Report</span>
                     </div>
-                    <div className="whitespace-pre-wrap text-foreground font-medium leading-relaxed prose prose-sm prose-gold">
-                      {analysis}
+                    <div className="relative z-10">
+                      <MarkdownRenderer content={analysis} />
                     </div>
                   </div>
                 )}
@@ -261,8 +288,8 @@ export default function NewDecisionPage() {
                   <Check size={40} />
                 </div>
                 <h3 className="text-3xl font-serif text-foreground">Ready to Lock</h3>
-                <p className="text-muted-foreground max-w-md mx-auto font-bold leading-relaxed">
-                  Review your analysis. Once you commit, this reasoning is time-locked and cannot be modified until the review date.
+                <p className="text-muted-foreground max-w-md mx-auto font-bold leading-relaxed italic">
+                  "Reasoning captured before the outcome is known." Once you commit, this ledger entry is time-locked and cannot be modified.
                 </p>
               </div>
             )}
@@ -291,7 +318,7 @@ export default function NewDecisionPage() {
                 <Button 
                   type="submit"
                   disabled={submitting}
-                  className="bg-gold text-white hover:bg-gold-dk px-10 h-12 rounded-xl font-bold border-none shadow-[0_4px_20px_rgba(197,160,57,0.3)] animate-pulse"
+                  className="bg-gold text-white hover:bg-gold-dk px-10 h-12 rounded-xl font-bold border-none shadow-[0_4px_30px_rgba(197,160,57,0.3)] animate-pulse"
                 >
                   {submitting ? 'Sealing...' : 'Seal the Ledger'}
                 </Button>

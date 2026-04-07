@@ -1,49 +1,33 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { fetchWithAuth } from '@/lib/api';
 import Link from 'next/link';
-import { PlusCircle, LogOut, LayoutDashboard, History, Target, Brain, Trash2 } from 'lucide-react';
+import { PlusCircle, History, Brain, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useDecisions } from '@/hooks/useDecisions';
+import { useStats } from '@/hooks/useStats';
+import { toast } from 'sonner';
+import { useSearchParams } from 'next/navigation';
+import type { Decision } from '@/types';
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth();
-  const [decisions, setDecisions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user, checkSession } = useAuth();
+  const { decisions, loading: decisionsLoading, handleDelete } = useDecisions();
+  const { stats, loading: statsLoading } = useStats();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const loadDecisions = async () => {
-      try {
-        const data = await fetchWithAuth('/decisions');
-        setDecisions(data);
-      } catch (err) {
-        console.error('Failed to load decisions', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadDecisions();
-  }, []);
-
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!confirm('Are you sure you want to archive this case? it will be hidden from your ledger.')) return;
-    
-    try {
-      await fetchWithAuth(`/decisions/${id}`, {
-        method: 'DELETE',
-      });
-      setDecisions(decisions.filter((d: any) => d.id !== id));
-    } catch (err) {
-      console.error('Failed to delete decision', err);
-      alert('Failed to archive the decision.');
+    if (searchParams.get('success') === 'true') {
+      toast.success('Intelligence Tier Upgraded Successfully. Your neural limits have been expanded.');
+      // Refresh session to get updated plan
+      checkSession();
+      // Remove query param without reload
+      window.history.replaceState({}, '', window.location.pathname);
     }
-  };
+  }, [searchParams, checkSession]);
 
   return (
     <div className="min-h-screen bg-white font-sans text-foreground">
@@ -67,31 +51,31 @@ export default function DashboardPage() {
           <Card className="bg-bg-2 border-border/50 shadow-sm">
             <CardHeader className="pb-2">
               <CardDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Logged Cases</CardDescription>
-              <CardTitle className="text-4xl font-serif text-gold">{decisions.length}</CardTitle>
+              <CardTitle className="text-4xl font-serif text-gold">{statsLoading ? '...' : stats.totalDecisions}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="bg-bg-2 border-border/50 shadow-sm">
             <CardHeader className="pb-2">
               <CardDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Intelligence Rank</CardDescription>
-              <CardTitle className="text-4xl font-serif text-gold">A1</CardTitle>
+              <CardTitle className="text-4xl font-serif text-gold">{statsLoading ? '...' : stats.intelligenceRank}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="bg-bg-2 border-border/50 shadow-sm">
             <CardHeader className="pb-2">
               <CardDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Calibration</CardDescription>
-              <CardTitle className="text-4xl font-serif text-gold">High</CardTitle>
+              <CardTitle className="text-4xl font-serif text-gold">{statsLoading ? '...' : stats.calibrationLabel}</CardTitle>
             </CardHeader>
           </Card>
           <Card className="bg-bg-2 border-border/50 shadow-sm">
             <CardHeader className="pb-2">
-              <CardDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Biases Logged</CardDescription>
-              <CardTitle className="text-4xl font-serif text-gold">14</CardTitle>
+              <CardDescription className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Biases Detected</CardDescription>
+              <CardTitle className="text-4xl font-serif text-gold">{statsLoading ? '...' : stats.biasesDetected}</CardTitle>
             </CardHeader>
           </Card>
         </div>
 
         {/* Ready for Review Alert */}
-        {decisions.some((d: any) => !d.isReviewed && new Date(d.reviewDate) <= new Date()) && (
+        {decisions.some((d: Decision) => !d.isReviewed && new Date(d.reviewDate) <= new Date()) && (
           <section className="mb-12">
             <h3 className="text-xl font-serif text-foreground mb-4 flex items-center gap-2">
               <History className="text-gold" size={20} />
@@ -99,8 +83,8 @@ export default function DashboardPage() {
             </h3>
             <div className="space-y-4">
               {decisions
-                .filter((d: any) => !d.isReviewed && new Date(d.reviewDate) <= new Date())
-                .map((d: any) => (
+                .filter((d: Decision) => !d.isReviewed && new Date(d.reviewDate) <= new Date())
+                .map((d: Decision) => (
                   <div key={d.id} className="p-6 bg-gold/5 border border-gold/20 rounded-2xl flex items-center justify-between gap-6 group hover:translate-x-1 transition-all">
                     <div className="space-y-1">
                       <h4 className="text-lg font-serif text-foreground group-hover:text-gold transition-colors">{d.title}</h4>
@@ -123,7 +107,7 @@ export default function DashboardPage() {
             <Link href="/history" className="text-gold text-sm hover:underline font-bold">View Full Ledger</Link>
           </div>
 
-          {loading ? (
+          {decisionsLoading ? (
             <div className="flex h-64 items-center justify-center">
               <div className="animate-pulse text-gold uppercase tracking-widest text-[10px] font-bold">Accessing Ledger...</div>
             </div>
@@ -146,7 +130,7 @@ export default function DashboardPage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {decisions.slice(0, 6).map((decision: any) => (
+              {decisions.slice(0, 6).map((decision: Decision) => (
                 <Link key={decision.id} href={`/decisions/${decision.id}`}>
                   <Card className="border-border bg-bg-2 hover:border-gold/40 transition-all cursor-pointer group h-full shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.05)] rounded-2xl relative overflow-hidden">
                     <CardHeader className="p-8">

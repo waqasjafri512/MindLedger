@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../lib/prisma';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { validate, createDecisionSchema, outcomeSchema } from '../lib/validation';
 
 const router = express.Router();
 
@@ -21,11 +22,23 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 });
 
 // POST new decision
-router.post('/', authenticateToken, async (req: AuthRequest, res) => {
+router.post('/', authenticateToken, validate(createDecisionSchema), async (req: AuthRequest, res) => {
   const { title, category, context, reasoning, alternatives, confidence, emotionTags, aiAnalysis, reviewDate } = req.body;
-  if (!title || !context || !reasoning) return res.status(400).json({ error: 'Title, context, and reasoning are required.' });
 
   try {
+    // Check subscription limits for Free tier
+    const user = await prisma.user.findUnique({ where: { id: req.user?.id } });
+    if (user?.plan === 'free') {
+      const count = await prisma.decision.count({ 
+        where: { userId: req.user?.id, isDeleted: false } 
+      });
+      if (count >= 5) {
+        return res.status(403).json({ 
+          error: 'Free tier limit reached (5 cases). Please upgrade to Pro for unlimited archival intelligence.' 
+        });
+      }
+    }
+
     const decision = await prisma.decision.create({
       data: {
         userId: req.user?.id as string,
@@ -47,41 +60,52 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
-// GET a single decision
+// GET a single decision (secured: userId in where clause)
 router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const decision = await prisma.decision.findFirst({
       where: { 
         id: req.params.id,
+        userId: req.user?.id,
         isDeleted: false
       },
     });
-    if (!decision || decision.userId !== req.user?.id) return res.status(404).json({ error: 'Decision not found.' });
+    if (!decision) return res.status(404).json({ error: 'Decision not found.' });
     res.json(decision);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch decision.' });
   }
 });
 
-// POST outcome for a decision
-router.post('/:id/outcome', authenticateToken, async (req: AuthRequest, res) => {
+// POST outcome for a decision (FIXED: userId in where clause — prevents IDOR)
+router.post('/:id/outcome', authenticateToken, validate(outcomeSchema), async (req: AuthRequest, res) => {
   const { actualOutcome, accuracyScore } = req.body;
-  if (!actualOutcome) return res.status(400).json({ error: 'Actual outcome is required.' });
 
   try {
+    // First verify ownership
+    const existing = await prisma.decision.findFirst({
+      where: { id: req.params.id, userId: req.user?.id, isDeleted: false },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Decision not found.' });
+    }
+
+    // Check review date enforcement
+    if (new Date(existing.reviewDate) > new Date()) {
+      return res.status(400).json({ error: 'Review date has not been reached yet.' });
+    }
+
+    // Then update
     const decision = await prisma.decision.update({
       where: { id: req.params.id },
       data: {
         actualOutcome,
-        accuracyScore: Number(accuracyScore),
+        accuracyScore: Math.min(100, Math.max(0, accuracyScore)),
         isReviewed: true,
         reviewedAt: new Date(),
       },
     });
-    
-    if (!decision || decision.userId !== req.user?.id) {
-      return res.status(404).json({ error: 'Decision not found.' });
-    }
 
     res.json(decision);
   } catch (err) {
@@ -89,17 +113,23 @@ router.post('/:id/outcome', authenticateToken, async (req: AuthRequest, res) => 
   }
 });
 
-// DELETE (Soft Delete) a decision
+// DELETE (Soft Delete) a decision (secured: userId in where clause)
 router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const decision = await prisma.decision.update({
-      where: { 
-        id: req.params.id,
-        userId: req.user?.id 
-      },
+    const existing = await prisma.decision.findFirst({
+      where: { id: req.params.id, userId: req.user?.id, isDeleted: false },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Decision not found.' });
+    }
+
+    await prisma.decision.update({
+      where: { id: req.params.id },
       data: { isDeleted: true },
     });
-    res.json({ message: 'Decision archived successfully', id: decision.id });
+
+    res.json({ message: 'Decision archived successfully', id: req.params.id });
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete decision.' });
   }

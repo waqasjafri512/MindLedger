@@ -8,14 +8,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { fetchWithAuth } from '@/lib/api';
-import { ChevronLeft, CheckCircle2, AlertCircle, TrendingUp, History, Target, Sparkles, BrainCircuit } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ChevronLeft, CheckCircle2, TrendingUp, History, Target, Sparkles, BrainCircuit } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
+import type { Decision } from '@/types';
 
 export default function OutcomeReviewPage() {
   const { id } = useParams();
   const router = useRouter();
-  const [decision, setDecision] = useState<any>(null);
+  const [decision, setDecision] = useState<Decision | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actualOutcome, setActualOutcome] = useState('');
@@ -23,7 +25,6 @@ export default function OutcomeReviewPage() {
   const [hindsightAnalysis, setHindsightAnalysis] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [step, setStep] = useState(1);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     const loadDecision = async () => {
@@ -33,8 +34,16 @@ export default function OutcomeReviewPage() {
         if (data.isReviewed) {
           router.push(`/decisions/${id}`);
         }
+        
+        // Enforce review date on frontend
+        if (new Date(data.reviewDate) > new Date()) {
+          toast.error("The reckoning date has not yet passed. You cannot review this entry yet.");
+          router.push(`/decisions/${id}`);
+        }
       } catch (err: any) {
-        setError('Failed to load decision.');
+        console.error('Failed to load decision', err);
+        toast.error('Failed to load decision case file.');
+        router.push('/dashboard');
       } finally {
         setLoading(false);
       }
@@ -43,21 +52,22 @@ export default function OutcomeReviewPage() {
   }, [id, router]);
 
   const handleNextToAnalysis = async () => {
-    if (!actualOutcome) return setError('Please describe the actual outcome.');
+    if (!actualOutcome) return toast.error('Please describe the actual outcome architecture.');
     setIsAnalyzing(true);
     setStep(2);
     try {
       const data = await fetchWithAuth('/analysis/hindsight', {
         method: 'POST',
         body: JSON.stringify({
-          title: decision.title,
-          reasoning: decision.reasoning,
-          confidence: decision.confidence,
+          title: decision?.title,
+          reasoning: decision?.reasoning,
+          confidence: decision?.confidence,
           actualOutcome: actualOutcome,
         }),
       });
       setHindsightAnalysis(data.analysis);
     } catch (err: any) {
+      console.error('Hindsight analysis failed', err);
       setHindsightAnalysis('### ⚠️ AI Hindsight Analysis Unavailable\nWe were unable to perform the reconciliation at this time. You can still finalize your calibration below.');
     } finally {
       setIsAnalyzing(false);
@@ -71,9 +81,11 @@ export default function OutcomeReviewPage() {
         method: 'POST',
         body: JSON.stringify({ actualOutcome, accuracyScore }),
       });
+      toast.success('Ledger case successfully closed and calibrated.');
       router.push(`/decisions/${id}`);
     } catch (err: any) {
-      setError('Failed to save outcome.');
+      console.error('Failed to save outcome', err);
+      toast.error(err.message || 'Failed to save outcome.');
       setIsSubmitting(false);
     }
   };
@@ -86,6 +98,8 @@ export default function OutcomeReviewPage() {
       </div>
     );
   }
+
+  if (!decision) return null;
 
   return (
     <div className="min-h-screen bg-white p-10 font-sans text-foreground pb-24">
@@ -169,14 +183,11 @@ export default function OutcomeReviewPage() {
                 ) : (
                   <div className="p-10 bg-white border border-gold/20 rounded-3xl shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-gold/5 blur-3xl -mr-16 -mt-16" />
-                    <div className="whitespace-pre-wrap text-foreground font-medium leading-relaxed prose prose-sm prose-gold max-w-none">
-                      {hindsightAnalysis}
-                    </div>
+                    <MarkdownRenderer content={hindsightAnalysis} />
                   </div>
                 )}
               </div>
             )}
-            {error && <div className="text-sm font-bold text-red bg-red/5 p-4 rounded-xl border border-red/10 animate-shake">{error}</div>}
           </CardContent>
 
           <CardFooter className="p-0 mt-12 pt-8 border-t border-border/50 flex justify-between">

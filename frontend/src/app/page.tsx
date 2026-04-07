@@ -13,6 +13,7 @@ export default function Home() {
           MindLedger <span className="text-muted-foreground/40 font-sans font-bold text-[10px] uppercase tracking-widest ml-2">Beta</span>
         </div>
         <div className="flex items-center gap-4 md:gap-10">
+          <Link href="#pricing" className="text-muted-foreground text-xs uppercase tracking-widest hover:text-gold transition-colors font-bold hidden md:block">Pricing</Link>
           <Link href="/login" className="text-muted-foreground text-xs uppercase tracking-widest hover:text-gold transition-colors font-bold">Login</Link>
           <Link href="/signup" className="bg-gold hover:bg-gold-dk text-white text-xs font-bold px-6 py-2.5 rounded-full transition-all active:scale-95 shadow-[0_4px_15px_rgba(197,160,57,0.2)] tracking-widest uppercase">
             Get Started
@@ -118,6 +119,66 @@ export default function Home() {
                     <h4 className="font-serif text-lg text-foreground mb-1">{item.t}</h4>
                     <p className="text-sm text-muted-foreground font-medium">{item.d}</p>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* PRICING SECTION */}
+        <section id="pricing" className="py-24 md:py-40 px-6 bg-white border-t border-border/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gold/5 blur-[126px] pointer-events-none rounded-full" />
+          <div className="max-w-[1100px] mx-auto">
+            <div className="text-center mb-16 space-y-4">
+              <h2 className="font-serif text-4xl md:text-6xl text-foreground">Intelligence Tiers</h2>
+              <p className="text-muted-foreground font-medium italic">Scale your cognitive capacity as your decision volume grows.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[
+                { 
+                  t: "Free", 
+                  p: "$0", 
+                  d: "Basic cognitive logging.", 
+                  f: ["5 Total Ledger Entries", "Standard Hindsight", "Basic DNA Mapping"],
+                  b: "Start Archiving"
+                },
+                { 
+                  t: "Pro", 
+                  p: "$19", 
+                  d: "Unlimited archival storage.", 
+                  f: ["Unlimited Entries", "AI Reasoning Synthesis", "Bias Vulnerability Reports", "Priority Support"],
+                  b: "Upgrade to Pro",
+                  popular: true
+                },
+                { 
+                  t: "Team", 
+                  p: "$49", 
+                  d: "Collective intelligence.", 
+                  f: ["Shared Case Files", "Risk Analysis console", "Dedicated Support", "Unlimited Entries"],
+                  b: "Contact Sales"
+                }
+              ].map((tier, i) => (
+                <div key={i} className={`p-8 rounded-3xl border transition-all ${tier.popular ? 'border-gold shadow-[0_20px_50px_rgba(197,160,57,0.1)] bg-white scale-105 relative z-10' : 'border-border bg-bg-2'}`}>
+                  {tier.popular && <span className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gold text-white text-[10px] uppercase tracking-[0.3em] font-bold px-4 py-1.5 rounded-full">Recommended</span>}
+                  <h4 className="font-serif text-2xl mb-4 text-foreground">{tier.t}</h4>
+                  <div className="flex items-baseline gap-1 mb-6">
+                    <span className="text-4xl font-serif text-foreground">{tier.p}</span>
+                    <span className="text-muted-foreground text-xs font-bold uppercase tracking-widest">/mo</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-8 italic font-medium">{tier.d}</p>
+                  <ul className="space-y-4 mb-8">
+                    {tier.f.map((feat, fi) => (
+                      <li key={fi} className="flex items-center gap-3 text-sm font-medium text-foreground/80">
+                        <div className="w-1.5 h-1.5 rounded-full bg-gold" /> {feat}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/signup">
+                    <button className={`w-full py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${tier.popular ? 'bg-gold text-white hover:bg-gold-dk shadow-lg' : 'bg-white border border-border text-foreground hover:bg-bg-2'}`}>
+                      {tier.b}
+                    </button>
+                  </Link>
                 </div>
               ))}
             </div>

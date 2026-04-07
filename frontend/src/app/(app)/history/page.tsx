@@ -1,55 +1,22 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { fetchWithAuth } from '@/lib/api';
 import Link from 'next/link';
-import { Search, Filter, History, Calendar, Target, BrainCircuit, Trash2 } from 'lucide-react';
+import { Search, History, Calendar, BrainCircuit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useDecisions } from '@/hooks/useDecisions';
+import type { Decision } from '@/types';
 
 export default function HistoryPage() {
-  const { user } = useAuth();
-  const [decisions, setDecisions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { decisions, loading, handleDelete } = useDecisions();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
 
-  useEffect(() => {
-    const loadDecisions = async () => {
-      try {
-        const data = await fetchWithAuth('/decisions');
-        setDecisions(data);
-      } catch (err) {
-        console.error('Failed to load history', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadDecisions();
-  }, []);
-
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!confirm('Are you sure you want to archive this case? it will be hidden from your ledger.')) return;
-    
-    try {
-      await fetchWithAuth(`/decisions/${id}`, {
-        method: 'DELETE',
-      });
-      setDecisions(decisions.filter((d: any) => d.id !== id));
-    } catch (err) {
-      console.error('Failed to delete decision', err);
-      alert('Failed to archive the decision.');
-    }
-  };
-
-  const filteredDecisions = decisions.filter((d: any) => {
+  const filteredDecisions = decisions.filter((d: Decision) => {
     const matchesSearch = d.title.toLowerCase().includes(search.toLowerCase()) || 
                          d.context.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = category === 'all' || d.category === category;
@@ -110,7 +77,7 @@ export default function HistoryPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredDecisions.map((decision: any) => (
+            {filteredDecisions.map((decision: Decision) => (
               <Link key={decision.id} href={`/decisions/${decision.id}`}>
                 <Card className="bg-bg-2 border-border/50 hover:border-gold/30 transition-all group overflow-hidden relative shadow-sm hover:shadow-md rounded-2xl">
                   {decision.aiAnalysis && (
