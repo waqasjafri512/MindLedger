@@ -10,7 +10,7 @@ export default function Home() {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 bg-white/80 backdrop-blur-xl border-b border-border/50">
         <div className="font-serif text-2xl text-foreground tracking-tight flex items-center gap-2">
           <div className="w-8 h-8 bg-gold rounded flex items-center justify-center text-white font-bold text-lg shadow-[0_4px_10px_rgba(197,160,57,0.2)]">M</div>
-          MindLedger <span className="text-muted-foreground/40 font-sans font-bold text-[10px] uppercase tracking-widest ml-2">Beta</span>
+          MindLedger
         </div>
         <div className="flex items-center gap-4 md:gap-10">
           <Link href="#pricing" className="text-muted-foreground text-xs uppercase tracking-widest hover:text-gold transition-colors font-bold hidden md:block">Pricing</Link>
@@ -27,10 +27,10 @@ export default function Home() {
           {/* Ambient Background Glow */}
           <div className="absolute top-[10%] left-1/2 -translate-x-1/2 w-[700px] h-[700px] bg-gold/10 blur-[120px] pointer-events-none rounded-full" />
 
-          <div className="inline-flex items-center gap-2 bg-white border border-border rounded-full px-4 py-1.5 text-[0.7rem] text-gold tracking-[0.2em] mb-10 animate-fade-in-up font-bold shadow-sm">
+          {/* <div className="inline-flex items-center gap-2 bg-white border border-border rounded-full px-4 py-1.5 text-[0.7rem] text-gold tracking-[0.2em] mb-10 animate-fade-in-up font-bold shadow-sm">
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse" />
             ELITE COGNITIVE LAYER
-          </div>
+          </div> */}
 
           <h1 className="font-serif text-5xl md:text-8xl font-medium leading-[1.05] tracking-tight mb-8 animate-fade-in-up [animation-delay:100ms] text-foreground">
             Track <em className="italic text-gold not-italic">why</em> you<br />
@@ -201,22 +201,30 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="px-6 md:px-12 py-16 border-t border-border/50 bg-bg-2 flex flex-col md:flex-row items-center justify-between gap-10">
-        <div className="flex flex-col items-center md:items-start gap-4">
-          <div className="font-serif text-foreground text-2xl tracking-tight flex items-center gap-2">
-            <div className="w-6 h-6 bg-gold rounded flex items-center justify-center text-white font-bold text-xs">M</div>
-            MindLedger
-          </div>
-          <p className="text-[0.7rem] text-muted-foreground font-bold uppercase tracking-widest leading-loose text-center md:text-left">
-            Built for people who want to understand the architecture of their own minds.
-          </p>
-        </div>
-        <div className="flex gap-10 text-[0.7rem] text-muted-foreground font-bold uppercase tracking-widest">
-          <Link href="/login" className="hover:text-gold transition-colors">Login</Link>
-          <Link href="/signup" className="hover:text-gold transition-colors">Sign Up</Link>
-          <Link href="#" className="hover:text-gold transition-colors">Terms</Link>
-        </div>
-      </footer>
+<footer className="px-6 md:px-12 py-16 border-t border-border/50 bg-bg-2 flex flex-col md:flex-row items-center justify-between gap-10">
+  
+  {/* Left Section */}
+  <div className="flex flex-col items-center md:items-start gap-4">
+    <div className="font-serif text-foreground text-2xl tracking-tight flex items-center gap-2">
+      <div className="w-6 h-6 bg-gold rounded flex items-center justify-center text-white font-bold text-xs">
+        M
+      </div>
+      MindLedger
+    </div>
+
+    <p className="text-[0.7rem] text-muted-foreground font-bold uppercase tracking-widest leading-loose text-center md:text-left">
+      Built for people who want to understand the architecture of their own minds.
+    </p>
+  </div>
+
+  {/* Right Section */}
+  <div className="text-center md:text-right text-[0.75rem] text-muted-foreground">
+    © {new Date().getFullYear()} Made with{" "}
+    <span className="text-red-500">❤️</span> by{" "}
+    <span className="font-semibold text-foreground">Waqas Anjum</span>
+  </div>
+
+</footer>
     </div>
   );
 }
